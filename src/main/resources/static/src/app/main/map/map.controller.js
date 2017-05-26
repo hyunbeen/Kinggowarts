@@ -25,6 +25,11 @@
             level: mapLocation.lastZoomLevel
         };
 
+
+        var isModifyCustomEventInfo = false;
+        var isModifyCustomEventShape = false;
+    
+
         var map = new daum.maps.Map(container, options),
         customOverlay = new daum.maps.CustomOverlay({}),
         infowindow = new daum.maps.InfoWindow({removable: true});
@@ -97,9 +102,6 @@
             }
         };
         
-        $interval(function(){
-            console.log(vm.categoryStatus);
-        }, 1000); 
         // 위에 작성한 옵션으로 Drawing Manager를 생성합니다
         drawingManager = new daum.maps.Drawing.DrawingManager(drawCustomEvnetOptions);
         vm.makeCustomEventDetail = function(answer){
@@ -114,7 +116,12 @@
                 "lat": curDrawingObj["marker"][0]["y"],
                 "lng": curDrawingObj["marker"][0]["x"],
                 "type" : "none",
-                "detailed" : answer["detailed"]         
+                "detailed" : answer["detailed"],
+                "creater" : answer["creater"],
+                "dateTo" : answer["dateTo"],
+                "dateFrom" : answer["dateFrom"],
+                "location" : answer["location"],
+
             };
 
              //도형별 데이터를 생성하면서 그려진 overlay 제거한다.
@@ -145,7 +152,7 @@
                 drawingManager.remove(drawingManagerOverlays["polygon"][0]);
             }
 
-            //TODO : register newCustomEventObj on client data + server data
+            //TODO : register newCustomEventObj on + server data
             var customLen = vm.markerData["customevent"].length;
             //vm.markerData에 현재 data 추가.
             vm.markerData["customevent"][customLen] = newCustomEventObj;
@@ -155,8 +162,37 @@
             //vm.categoryStatus = "customevent";
             
         }
+        //var isModifyCustomEventInfo = false;
+        //var selectedMarkerIdx 사용
+        //vm.markerData["customevent"][selectedMarkerIdx]를 이용하여 접근
 
-        //커스텀이벤트 생성 다이얼로그
+        //커스텀 이벤트 내용 수정 함수.
+        vm.modifyCustomEventDetail = function(answer){
+            //데이터 변경을 위한 statue 전환.
+            categoryStatusChangeProcess("none");
+            //register custom event
+            var modifiedCustomEventObj = {
+                "name": answer["title"],
+                "detailed" : answer["detailed"],
+                "creater" : answer["creater"],
+                "dateTo" : answer["dateTo"],
+                "dateFrom" : answer["dateFrom"],
+                "location" : answer["location"]
+            };
+            //TODO : request put to server : modifiedCustomEventObj 현재 일부분임.
+            vm.markerData["customevent"][selectedMarkerIdx]["name"] = answer["title"];
+            //vm.markerData["customevent"][selectedMarkerIdx]["type"] : "none"
+            vm.markerData["customevent"][selectedMarkerIdx]["detailed"] = answer["detailed"];
+            vm.markerData["customevent"][selectedMarkerIdx]["creater"] = answer["creater"];
+            vm.markerData["customevent"][selectedMarkerIdx]["dateTo"] = answer["dateTo"];
+            vm.markerData["customevent"][selectedMarkerIdx]["dateFrom"] = answer["dateFrom"];
+            vm.markerData["customevent"][selectedMarkerIdx]["location"] = answer["location"];
+            createCategoryMarkersInJson();  //markerData에 있는 데이터를 기반으로 마커 재작성.
+            categoryStatusChangeProcess("customevent");
+            isModifyCustomEventInfo = false;    // modify mode 해제
+        };
+
+        //커스텀이벤트 생성 / 수정 다이얼로그
         vm.showCreateCustomEventDialog = function(ev) {
             $mdDialog.show({
                 controller: CreateCustomEventDialogController,
@@ -167,17 +203,40 @@
                 fullscreen: false // Only for -xs, -sm breakpoints.
             })
             .then(function(answer) {
-                //alert(answer);
-                vm.makeCustomEventDetail(answer);
+                //수정은 answer의 isModify(bool)을 통해...
+                if(answer["isModify"] == false)
+                    vm.makeCustomEventDetail(answer);   
+                else{
+                    vm.modifyCustomEventDetail(answer);
+                }
             }, function() {
-                alert('none..');
+                //alert('none..');
             });
         };
 
-
+        //커스텀이벤트 생성/ 수정 컨롤러
         function CreateCustomEventDialogController($scope, $mdDialog) {
-            $scope.title = "";
-            $scope.detailed = "";
+            //modify를 위한 dialog 생성.
+            if(isModifyCustomEventInfo == true){
+                $scope.isModify = true;
+                var tempCustomData = vm.markerData["customevent"][selectedMarkerIdx];
+                $scope.title = tempCustomData["name"];
+                $scope.detailed = tempCustomData["detailed"];
+                $scope.dateTo = tempCustomData["dateTo"];
+                $scope.dateFrom = tempCustomData["dateFrom"];
+                $scope.creater = tempCustomData["creater"];
+                $scope.location = tempCustomData["location"];  
+            }
+            else{
+                $scope.isModify = false;
+                $scope.title = "";
+                $scope.detailed = "";
+                $scope.dateTo = "";
+                $scope.dateFrom = "";
+                $scope.creater = "";
+                $scope.location = "";  
+            }
+            
             $scope.hide = function() {
                 $mdDialog.hide();
             };
@@ -185,11 +244,57 @@
                 $mdDialog.cancel();
             };
             $scope.answer = function() {
-                var answer = {"title" : $scope.title, "detailed" : $scope.detailed};
+                var answer = {
+                    "title" : $scope.title, "detailed" : $scope.detailed, "dateTo" : $scope.dateTo, "dateFrom" : $scope.dateFrom,
+                    "creater" : $scope.creater, "location" : $scope.location, "isModify" : isModifyCustomEventInfo
+                };
                 $mdDialog.hide(answer);
             };
         }
-        // 버튼 클릭 시 호출되는 핸들러 입니다
+
+        //커스텀이벤트의 내용을 보여주는 다이얼로그
+        vm.showCustomEventDialog = function(ev) {
+            $mdDialog.show({
+                controller: CustomEventDialogController,
+                templateUrl: 'app/main/map/dialogCustomEvent.html',
+                parent: angular.element(document.body),
+                targetEvent: ev,
+                clickOutsideToClose:true,
+                fullscreen: false // Only for -xs, -sm breakpoints.
+            })
+            .then(function(answer) {
+                if(answer == "modifyShpae"){
+                    isModifyCustomEventInfo = true;
+                    modifyCustomEventShape();
+                }
+                else if(answer == "modifyInfo"){
+                    isModifyCustomEventInfo = true;
+                    vm.showCreateCustomEventDialog();
+                }
+            }, function() {
+                //alert('none..');
+            });
+        };
+
+
+        function CustomEventDialogController($scope, $mdDialog) {
+            $scope.data = vm.markerData["customevent"][selectedMarkerIdx];
+            //selectedMarkerIdx;
+            $scope.hide = function() {
+                $mdDialog.hide();
+            };
+            $scope.cancel = function() {
+                $mdDialog.cancel();
+            };
+            $scope.answer = function(answer) {
+                $mdDialog.hide(answer);
+            };
+        }
+
+
+
+
+        // 왼쪽하단 생성 fab 버튼 클릭 시 호출되는 핸들러 입니다
         vm.selectDrawOverlay = function(type) {
             if(type == "CREATE"){
                 // 현재 drawingManger에 있는 데이터 획득
@@ -354,7 +459,7 @@
             .then(function(answer) {
                 alert('answer');
             }, function() {
-                alert('none..');
+                //alert('none..');
             });
         };
 
@@ -413,7 +518,6 @@
                     //vm.categoryStatus = "none";
                     categoryStatusChangeProcess("none");
                     catCount = 0;
-                    console.log("none is called!" + catCount);
                     //DrawingManager가 존재하는 경우 그림그리는 도중일 수 있으므로 남은 그림을 제거한다.
                     if(drawingManager != null){
                         var drawingManagerOverlays = drawingManager.getOverlays();
@@ -531,44 +635,13 @@
                 }
             }
         };
-        /*
-        $scope.$watch(function() { return vm.categoryStatus}, function(newVal, oldVal) {
-            //선택된 marker의 clicked image상태를 normal image로 되돌려놓는다.
-            if(selectedMarker != null){
-                selectedMarker.setImage(selectedMarker.normalImage);
-                selectedMarker = null;
-            }   
-            //delete all marker on map. Init printedCategoryMarkers
-            for(var i=0; i<printedCategoryMarkers.length; i++){
-                printedCategoryMarkers[i].setMap(null);
-            }
-            printedCategoryMarkers = [];
-            for(var i=0; i<customEventShapes.length; i++){
-                customEventShapes[i].setMap(null);
-            }
-            //카테고리가 정해져있으면 printedCategoryMarkers에 해당 카테고리 마커들을 저장하고 출력한다.
-            if(vm.categoryStatus != "none"){
-                for(var i=0; i<categoryMarkers[vm.categoryStatus].length; i++){
-                    categoryMarkers[vm.categoryStatus][i].setMap(map);
-                    printedCategoryMarkers[i] =  categoryMarkers[vm.categoryStatus][i];
-                }
-                //customevent의경우 추가적으로 도형 생성
-                if(vm.categoryStatus == "customevent"){
-                    for(var i=0; i<customEventShapes.length; i++){
-                        customEventShapes[i].setMap(map);
-                    }
-                }
-            }
-            categoryStatusMutex = 0;
-        }, true);
-        */
 
         //Marker Image Process------------------------------------------
        
         var categoryTypes = ["bank", "toilet", "busstop", "print", "vendingmachine", "insideRestaurant", "regions", "customevent"];
         var categoryMarkers = {};   
         var selectedMarker = null; // 클릭한 마커를 담을 변수
-
+        var selectedMarkerIdx = 0;
         var normalImage = {};   //Image[categoryIndex]
         var overImage = {};
         var clickImage = {};
@@ -710,8 +783,14 @@
 
                 // 클릭된 마커를 현재 클릭된 마커 객체로 설정합니다
                 selectedMarker = marker;
+                selectedMarkerIdx = typeIdx;
                 //dialog 띄우기
-                vm.showMarkerDialog();
+                if(vm.categoryStatus == "customevent"){
+                    vm.showCustomEventDialog();
+                }
+                else{
+                    vm.showMarkerDialog();
+                }
             });
 
             //생성한 마커를 categoryMarkers에 저장.
