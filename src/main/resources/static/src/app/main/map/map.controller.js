@@ -691,7 +691,8 @@
             drawingManager.put(daum.maps.drawing.OverlayType.MARKER, new daum.maps.LatLng(data["lat"], data["lng"]), 1);
             //add shape
             if(data["shape"] == "CIRCLE"){
-                drawingManager.put(daum.maps.drawing.OverlayType.CIRCLE, new daum.maps.LatLng(data["circleLat"], data["circleLng"], data["circleRadius"]));
+                console.log(data["circleRadius"]);
+                drawingManager.put(daum.maps.drawing.OverlayType.CIRCLE, new daum.maps.LatLng(data["circleLat"], data["circleLng"]), data["circleRadius"]);
             }
             else if(data["shape"] == "POLYGON"){
                 var inPath = [];
