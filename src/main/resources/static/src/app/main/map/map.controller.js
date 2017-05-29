@@ -247,7 +247,7 @@
                     showCreateRegionDialog();
                 }
                 else if(answer == "delete"){
-                    deleteRegionEvent();
+                    deleteRegion();
                 }
             }, function() {
                 //alert('none..');
@@ -316,31 +316,18 @@
             isModifyRegionInfo = false;    // modify mode 해제
         };
 
-/*
-        function deleteCustomEvent($mdDialog){
-            console.log("!");
-            function showConfirm(ev) {
-                // Appending dialog to document.body to cover sidenav in docs app
-                var confirm = $mdDialog.confirm()
-                      .title('삭제하겠습니까?')
-                      .textContent('empty')
-                      .ariaLabel('emptyaria')
-                      .targetEvent(ev)
-                      .ok('취소')
-                      .cancel('삭제');
+        function deleteRegion($mdDialog){
+            //TODO request delete
+            //markerData["customevent"][selectedMarkerIdx]["id"]
+            categoryStatusChangeProcess("none");
+            createCategoryMarkersInJson();  //markerData에 있는 데이터를 기반으로 마커 재작성.
+            categoryStatusChangeProcess("regions");
 
-                $mdDialog.show(confirm).then(function() {
-                    //취소
-                }, function() {
-                    //삭제 TODO
-                });
-            };
             
-      }*/
-      function deleteRegion($mdDialog){
-       var showConfirm = function(ev) {
-        // Appending dialog to document.body to cover sidenav in docs app
-        var confirm = $mdDialog.confirm()
+            /*
+            var showConfirm = function(ev) {
+            // Appending dialog to document.body to cover sidenav in docs app
+            var confirm = $mdDialog.confirm()
             .title('Would you like to delete your debt?')
             .textContent('All of the banks have agreed to forgive you your debts.')
             .ariaLabel('Lucky day')
@@ -356,6 +343,7 @@
                 });
             };
             showConfirm();
+            */
         }
 
     
@@ -529,29 +517,16 @@
             isModifyCustomEventInfo = false;    // modify mode 해제
         };
 
-/*
-        function deleteCustomEvent($mdDialog){
-            console.log("!");
-            function showConfirm(ev) {
-                // Appending dialog to document.body to cover sidenav in docs app
-                var confirm = $mdDialog.confirm()
-                      .title('삭제하겠습니까?')
-                      .textContent('empty')
-                      .ariaLabel('emptyaria')
-                      .targetEvent(ev)
-                      .ok('취소')
-                      .cancel('삭제');
 
-                $mdDialog.show(confirm).then(function() {
-                    //취소
-                }, function() {
-                    //삭제 TODO
-                });
-            };
-            
-      }*/
-      function deleteCustomEvent($mdDialog){
-       var showConfirm = function(ev) {
+        function deleteCustomEvent(){
+            //TODO request delete
+            //markerData["customevent"][selectedMarkerIdx]["id"]
+            categoryStatusChangeProcess("none");
+            createCategoryMarkersInJson();  //markerData에 있는 데이터를 기반으로 마커 재작성.
+            categoryStatusChangeProcess("customevent");
+        }
+/*      
+        var showConfirm = function(ev) {
         // Appending dialog to document.body to cover sidenav in docs app
         var confirm = $mdDialog.confirm()
             .title('Would you like to delete your debt?')
@@ -570,6 +545,7 @@
             };
             showConfirm();
         }
+        */
 
     //---------------좌하단 fab 버튼------------------------------------
         // 클릭 시 호출되는 핸들러 입니다

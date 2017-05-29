@@ -40,6 +40,43 @@
                     {
                         return msApi.resolve('customEventData@get');
                     }
+                    /*
+                    MarkerData: function ($http, $sessionStorage)
+                    {
+                        var obj = $http.get('/api/map?xxmarkerrxxx', {
+                            headers : {
+                                'Authorization' : $sessionStorage.get('AuthToken')
+                            }
+                        });
+                        return obj;
+                    },
+                    CategoryMarkerData: function ($http, $sessionStorage)
+                    {
+                        return msApi.resolve('categoryMarker@get');
+                    },
+                    SubAreaData: function ($http, $sessionStorage)          ++ admin
+                    {
+                        var obj = $http.get('/api/map?type=user', {
+                            headers : {
+                                'Authorization' : $sessionStorage.get('AuthToken')
+                            }
+                        });
+                        return obj;
+                    },
+                    DrawingMenuData: function ($http, $sessionStorage)
+                    {
+                        return msApi.resolve('drawingMenu@get');
+                    },
+                    CustomEventData: function ($http, $sessionStorage)
+                    {
+                        var obj = $http.get('/api/map?xxxcustomxxx', {
+                            headers : {
+                                'Authorization' : $sessionStorage.get('AuthToken')
+                            }
+                        });
+                        return obj;
+                    }
+                    */
                 }
             });
 
