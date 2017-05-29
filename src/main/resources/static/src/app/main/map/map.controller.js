@@ -28,10 +28,14 @@
         var map = new daum.maps.Map(container, options);
 
 
+
 //----------------------------------------------------------------------
         var isModifyCustomEventInfo = false;    //event info 수정상태
         var isModifyCustomEventShape = false;   //event shape 수정상태
-    
+        
+        var isModifyRegionShape = false;
+        var isModifyRegionInfo = false;
+
         var customOverlay = new daum.maps.CustomOverlay({});
         var infowindow = new daum.maps.InfoWindow({removable: true});
 
@@ -86,33 +90,41 @@
         drawingManager = new daum.maps.Drawing.DrawingManager(drawCustomEvnetOptions);
 
 
+        var customEventShapes = []; //customEvent region 도형들을 담는다.
+        var regionShapes = [];
 
-       
-        //선택된 커스텀 이벤트 도형을 수정 가능상태로 만들기.
-        function modifyCustomEventShape(){
-            //console.log("@@");
+
+        //선택된 이벤트 도형을 수정 가능상태로 만들기.
+        function modifyShape(){
+            
             disableAllMarkerListener();
             var curIdx = selectedMarkerIdx;
+            
             //layout set null
-            customEventShapes[curIdx].setMap(null);
-            printedCategoryMarkers[curIdx].setMap(null);
+            if(vm.categoryStatus == "customevent")
+                customEventShapes[curIdx].setMap(null);
+
+            else if(vm.categoryStatus == "regions")
+                regionShapes[curIdx].setMap(null);
+            //printedCategoryMarkers[curIdx].setMap(null);
 
             //마커 삭제 불가능하게 하려 했는데 setStyle 함수 호출 에러..
             //drawingManager.setStyle(daum.maps.drawing.OverlayType.Marker, 'removable', 'false');
 
             //layout으로 부터 정보를 얻기 힘드므로 vm.markerData에서 얻음.
-            addDataToDrawingManager(vm.markerData["customevent"][curIdx]);
+            console.log(vm.markerData[vm.categoryStatus][curIdx]);
+            addDataToDrawingManager(vm.markerData[vm.categoryStatus][curIdx]);
             
         };
 
         //수정된 커스텀 이벤트 도형 save
-        function registerShapeModifiedEventDialog(){
-            var modifyingData = vm.markerData["customevent"][selectedMarkerIdx];
+        function updateShape(){
+            var modifyingData = vm.markerData[vm.categoryStatus][selectedMarkerIdx];
             //custom event data(detail) -> event data(detail + shape&marker)
             var newCustomEventObj = removeOverlayAndGetData(modifyingData);
-            
+            var tempStatus = vm.categoryStatus;
             categoryStatusChangeProcess("none");
-            console.log(newCustomEventObj);
+            
             //TODO : register modified newCustomEventObj on server
             
             //vm.markerData에 현재 data 갱신 //UNDO
@@ -121,50 +133,51 @@
             
             //markerData에 있는 데이터를 기반으로 마커 재작성.
             createCategoryMarkersInJson();
-            categoryStatusChangeProcess("customevent");
+            categoryStatusChangeProcess(tempStatus);
             //vm.categoryStatus = "customevent";
             isModifyCustomEventShape = false;   //수정 종료
+            isModifyRegionShape = false;
             enableAllMarkerListener();
         };
 
     //----------------------------Region 내용 생성 / 수정----------------
 
-        var isModifyCustomEventInfo = false;    //event info 수정상태
-        var isModifyCustomEventShape = false;   //event shape 수정상태
-    
-        //커스텀이벤트 내용 생성 / 수정 다이얼로그
-        function showCreateCustomEventDialog(ev) {
+        //var isModifyRegionshape = false;
+        //var isModifyRegionInfo = false;
+        
+        //Region 내용 생성 / 수정 다이얼로그
+        function showCreateRegionDialog(ev) {
             $mdDialog.show({
-                controller: CreateCustomEventDialogController,
-                templateUrl: 'app/main/map/dialogCreateCustomEvent.html',
+                controller: CreateRegionDialogController,
+                templateUrl: 'app/main/map/dialogCreateRegion.html',
                 parent: angular.element(document.body),
                 targetEvent: ev,
                 clickOutsideToClose:true,
                 fullscreen: false, // Only for -xs, -sm breakpoints.
                 resolve:{
                     modifiedData : function(){
-                        if(isModifyCustomEventInfo == true)
-                            return vm.markerData["customevent"][selectedMarkerIdx];
+                        if(isModifyRegionInfo == true)
+                            return vm.markerData["regions"][selectedMarkerIdx];
                         else
                             return null;
                     }
                 }
             })
             .then(function(answer) {
-                if(isModifyCustomEventInfo == false)
-                    makeCustomEventDetail(answer);   
+                if(isModifyRegionInfo == false)
+                    makeRegionDetail(answer);   
                 else{
-                    modifyCustomEventDetail(answer);
+                    modifyRegionDetail(answer);
                 }
             }, function() {
-                isModifyCustomEventInfo = false;    // modify mode 해제
+                isModifyRegionInfo = false;    // modify mode 해제
             });
         };
 
-        //커스텀이벤트 내용 생성/ 수정 컨트롤러
-        function CreateCustomEventDialogController($scope, $mdDialog, modifiedData) {
+        //Region 내용 생성/ 수정 컨트롤러
+        function CreateRegionDialogController($scope, $mdDialog, modifiedData) {
             //modify를 위한 dialog 생성.
-            if(isModifyCustomEventInfo == true){
+            if(isModifyRegionInfo == true){
                 $scope.isModify = true; //dialog에서 create/detail 상태에 따른 제목 수정
                 $scope.retData = modifiedData;
             }
@@ -178,9 +191,6 @@
                     "type" : "user",
                     "shape" : "",
                     "detail" : "",
-                    "creater" : "",
-                    "dateTo" : "",
-                    "dateFrom" : "",
                     "location" : ""
                 };
             }
@@ -196,42 +206,42 @@
             };
         }
 
-    //-------------커스텀 내용 다이얼로그-------------------------
+    //-------------region 내용 다이얼로그-------------------------
         //커스텀이벤트의 내용을 보여주는 다이얼로그
-        function showCustomEventDialog(ev) {
+        function showRegionDialog(ev) {
             $mdDialog.show({
-                controller: CustomEventDialogController,
-                templateUrl: 'app/main/map/dialogCustomEvent.html',
+                controller: RegionDialogController,
+                templateUrl: 'app/main/map/dialogRegion.html',
                 parent: angular.element(document.body),
                 targetEvent: ev,
                 clickOutsideToClose:true,
                 fullscreen: false, // Only for -xs, -sm breakpoints.
                 resolve: {
-                    eventData : function(){
-                        return vm.markerData["customevent"][selectedMarkerIdx];
+                    regionData : function(){
+                        return vm.markerData["regions"][selectedMarkerIdx];
                     }
                 }
             })
             .then(function(answer) {
                 if(answer == "modifyShape"){
-                    isModifyCustomEventShape = true;
-                    modifyCustomEventShape();
+                    isModifyRegionShape = true;
+                    modifyShape();
                 }
                 else if(answer == "modifyInfo"){
-                    isModifyCustomEventInfo = true;
-                    showCreateCustomEventDialog();
+                    isModifyRegionInfo = true;
+                    showCreateRegionDialog();
                 }
                 else if(answer == "delete"){
-                    deleteCustomEvent();
+                    deleteRegionEvent();
                 }
             }, function() {
                 //alert('none..');
             });
         };
 
-        // 커스텀이벤트의 내용을 보여주는 다이얼로그 컨트롤러
-        function CustomEventDialogController($scope, $mdDialog, eventData) {
-            $scope.data = eventData;
+        // Region의 내용을 보여주는 다이얼로그 컨트롤러
+        function RegionDialogController($scope, $mdDialog, regionData) {
+            $scope.data = regionData;
             if($scope.data["type"] == "user"){
                 $scope.canModify = true;
             }
@@ -251,51 +261,44 @@
         }
 
         
-    //-----------------Process-----------------------------
+    //-----------------region Process-----------------------------
         // 새로운 커스텀 이벤트 세부 내용 만들기 Process
-        function makeCustomEventDetail(answer){
-            //answer route : CreateCustomEventDialogController->vm.showCreateCustomEventDialog->this
-
+        function makeRegionDetail(answer){
             //custom event data(detail) -> event data(detail + shape&marker)
-            var newCustomEventObj = removeOverlayAndGetData(answer);
+            var newRegionObj = removeOverlayAndGetData(answer);
 
             //반드시 status를 바꾸기 전에 overlaydata를 저장해 놓을것.
             categoryStatusChangeProcess("none");
 
             //TODO : register newCustomEventObj on server
-            var customLen = vm.customEventData.length;
+            var areaLen = subAreaData.length;
             //vm.markerData에 현재 data 추가.
-            newCustomEventObj["id"] = -1;   //this is on client.    //UNDO
-            vm.customEventData[customLen] = newCustomEventObj;    //UNDO
+            newRegionObj["id"] = -1;   //this is on client.    //UNDO
+            subAreaData[areaLen] = newRegionObj;    //UNDO
 
             //TODO : need to get MarkerData update.
             //markerData에 있는 데이터를 기반으로 마커 재작성.
             createCategoryMarkersInJson();
-            categoryStatusChangeProcess("customevent");
-            //vm.categoryStatus = "customevent";
+            categoryStatusChangeProcess("regions");
         }
         
         //커스텀 이벤트 내용 수정 Process.
-        function modifyCustomEventDetail(answer){
+        function modifyRegionDetail(answer){
             //데이터 변경을 위한 statue 전환.
             categoryStatusChangeProcess("none");
             
             //TODO : request post "answer data" to server
 
             //UNDO
-            vm.markerData["customevent"][selectedMarkerIdx]["name"] = answer["name"];
-            //vm.markerData["customevent"][selectedMarkerIdx]["type"] : "none"
-            vm.markerData["customevent"][selectedMarkerIdx]["detail"] = answer["detail"];
-            vm.markerData["customevent"][selectedMarkerIdx]["creater"] = answer["creater"];
-            vm.markerData["customevent"][selectedMarkerIdx]["dateTo"] = answer["dateTo"];
-            vm.markerData["customevent"][selectedMarkerIdx]["dateFrom"] = answer["dateFrom"];
-            vm.markerData["customevent"][selectedMarkerIdx]["location"] = answer["location"];
+            vm.markerData["regions"][selectedMarkerIdx]["name"] = answer["name"];
+            vm.markerData["regions"][selectedMarkerIdx]["detail"] = answer["detail"];
+            vm.markerData["regions"][selectedMarkerIdx]["location"] = answer["location"];
 
             //TODO : get new data from server
 
             createCategoryMarkersInJson();  //markerData에 있는 데이터를 기반으로 마커 재작성.
-            categoryStatusChangeProcess("customevent");
-            isModifyCustomEventInfo = false;    // modify mode 해제
+            categoryStatusChangeProcess("regions");
+            isModifyRegionInfo = false;    // modify mode 해제
         };
 
 /*
@@ -319,7 +322,7 @@
             };
             
       }*/
-      function deleteCustomEvent($mdDialog){
+      function deleteRegion($mdDialog){
        var showConfirm = function(ev) {
         // Appending dialog to document.body to cover sidenav in docs app
         var confirm = $mdDialog.confirm()
@@ -340,91 +343,7 @@
             showConfirm();
         }
 
-    //---------------좌하단 fab 버튼------------------------------------
-        // 클릭 시 호출되는 핸들러 입니다
-        vm.selectDrawOverlay = function(type) {
-            if(type == "CREATE"){
-                // 현재 drawingManger에 있는 데이터 획득
-                var curDrawingObj = drawingManager.getData();
-                //마커하나 도형하나 있는지 체크
-                var shapeType = null;
-                if(curDrawingObj["circle"].length != 0){
-                    shapeType = "circle";
-                }
-                else if(curDrawingObj["rectangle"].length != 0){
-                    shapeType = "rectangle";
-                }
-                else if(curDrawingObj["polygon"].length != 0){
-                    shapeType = "polygon";
-                }
-
-                if(curDrawingObj["marker"].length == 1 && shapeType != null){
-                    if(!isMarkerInShape(curDrawingObj["marker"][0]["y"], curDrawingObj["marker"][0]["x"], curDrawingObj[shapeType][0], shapeType)){    //마커가 지역 안에 있는지 체크한다.
-                        alert('marker should be in region!');
-                    }
-                    else{   // 모든 조건분기 통과시
-                        //커스텀 이벤트 도형을 수정중인 경우
-                        if(isModifyCustomEventShape == true){
-                            registerShapeModifiedEventDialog();
-                        }
-                        else{
-                            //생성 및 등록
-                            showCreateCustomEventDialog();
-                        }
-                    }
-                }
-                else{
-                    alert('need to make at least 1 marker and 1 region');
-                }
-            }
-            else{
-                // 그리기 중이면 그리기를 취소합니다
-                drawingManager.cancel();
-                
-                // 현재 drawingManger에 있는 데이터 획득
-                var curDrawingObj = drawingManager.getData();
-
-                // 중복 그림 제거
-                var drawingManagerOverlays = drawingManager.getOverlays();
-                if(type == "MARKER" && curDrawingObj["marker"].length != 0){
-                    drawingManager.remove(drawingManagerOverlays["marker"][0]);
-                }
-                else{
-                    if(curDrawingObj["circle"].length != 0){
-                        drawingManager.remove(drawingManagerOverlays["circle"][0]);
-                    }
-                    else if(curDrawingObj["rectangle"].length != 0){
-                        drawingManager.remove(drawingManagerOverlays["rectangle"][0]);
-                    }
-                    else if(curDrawingObj["polygon"].length != 0){
-                        drawingManager.remove(drawingManagerOverlays["polygon"][0]);
-                    }
-                }
-
-                // 클릭한 그리기 요소 타입을 선택합니다
-                drawingManager.select(daum.maps.Drawing.OverlayType[type]);
-            }
-            
-        }
-
-         //drawing 툴팁 띄우기 지연
-        $scope.$watch(function() { return vm.customEventIsOpen}, function(newVal) {
-            if (newVal) {
-                $timeout(function() {
-                    vm.customEvnetTooltipVisible = vm.customEventIsOpen;     //delay open
-                }, 600);
-            } else {
-                    vm.customEvnetTooltipVisible = vm.customEventIsOpen;     //delay 없이 바로 close
-            }
-        }, true);
-
-        //drawing 툴팁 고정
-        $scope.$watch(function() { return vm.customEvnetTooltipVisible}, function(newVal) {
-            if(vm.customEventIsOpen){
-                vm.customEvnetTooltipVisible = vm.customEventIsOpen;
-            }
-        }, true);
-
+    
 
 
     //----------------------------커스텀 내용 생성 / 수정----------------
@@ -512,7 +431,7 @@
             .then(function(answer) {
                 if(answer == "modifyShape"){
                     isModifyCustomEventShape = true;
-                    modifyCustomEventShape();
+                    modifyShape();
                 }
                 else if(answer == "modifyInfo"){
                     isModifyCustomEventInfo = true;
@@ -660,14 +579,26 @@
                         alert('marker should be in region!');
                     }
                     else{   // 모든 조건분기 통과시
-                        //커스텀 이벤트 도형을 수정중인 경우
-                        if(isModifyCustomEventShape == true){
-                            registerShapeModifiedEventDialog();
+                        if(vm.categoryStatus == "customevent"){
+                            //커스텀 이벤트 도형을 수정중인 경우
+                            if(isModifyCustomEventShape == true){
+                                updateShape();
+                            }
+                            else{
+                                //생성 및 등록
+                                showCreateCustomEventDialog();
+                            }
                         }
-                        else{
-                            //생성 및 등록
-                            showCreateCustomEventDialog();
+                        else if(vm.categoryStatus == "regions"){
+                            if(isModifyRegionShape == true){
+                                updateShape();
+                            }
+                            else{
+                                //create
+                                showCreateRegionDialog();
+                            }
                         }
+                        
                     }
                 }
                 else{
@@ -687,14 +618,16 @@
                     drawingManager.remove(drawingManagerOverlays["marker"][0]);
                 }
                 else{
-                    if(curDrawingObj["circle"].length != 0){
-                        drawingManager.remove(drawingManagerOverlays["circle"][0]);
-                    }
-                    else if(curDrawingObj["rectangle"].length != 0){
-                        drawingManager.remove(drawingManagerOverlays["rectangle"][0]);
-                    }
-                    else if(curDrawingObj["polygon"].length != 0){
-                        drawingManager.remove(drawingManagerOverlays["polygon"][0]);
+                    if(type != "MARKER"){
+                        if(curDrawingObj["circle"].length != 0){
+                            drawingManager.remove(drawingManagerOverlays["circle"][0]);
+                        }
+                        else if(curDrawingObj["rectangle"].length != 0){
+                            drawingManager.remove(drawingManagerOverlays["rectangle"][0]);
+                        }
+                        else if(curDrawingObj["polygon"].length != 0){
+                            drawingManager.remove(drawingManagerOverlays["polygon"][0]);
+                        }
                     }
                 }
 
@@ -770,7 +703,11 @@
                 drawingManager.put(daum.maps.drawing.OverlayType.CIRCLE, new daum.maps.LatLng(data["circleLat"], data["circleLng"], data["circleRadius"]));
             }
             else if(data["shape"] == "POLYGON"){
-                drawingManager.put(daum.maps.drawing.OverlayType.POLYLINE, data["path"]);
+                var inPath = [];
+                for(var i=0; i<data["path"].length; i++){
+                    inPath[i] = new daum.maps.LatLng(data["path"][i]["lat"], data["path"][i]["lng"]);
+                }
+                drawingManager.put(daum.maps.drawing.OverlayType.POLYGON, inPath);
             }
             else if(data["shape"] == "RECTANGLE"){
                 var bounds = new daum.maps.LatLngBounds(
@@ -946,8 +883,7 @@
         */
 
         var printedCategoryMarkers = [];    //현재 출력되는 모든 타케고리 마커 모음.
-        var customEventShapes = []; //customEvent region 도형들을 담는다.
-        var regionShapes = [];
+        
         // 마커 클러스터러를 생성합니다 
         var clusterer = new daum.maps.MarkerClusterer({
             map: map, // 마커들을 클러스터로 관리하고 표시할 지도 객체 
@@ -957,7 +893,9 @@
 
         //categoryStatus를 바꿀 때 반드시 이 함수를 통해 교체. Watch는 sync 문제로 인해 제거.
         function categoryStatusChangeProcess(status){
+            enableAllMarkerListener();
             isModifyCustomEventShape = false;
+            isModifyRegionShape = false;
 
             vm.categoryStatus = status;
             //선택된 marker의 clicked image상태를 normal image로 되돌려놓는다.
@@ -973,6 +911,9 @@
             printedCategoryMarkers = [];
             for(var i=0; i<customEventShapes.length; i++){
                 customEventShapes[i].setMap(null);
+            }
+            for(var i=0; i<regionShapes.length; i++){
+                regionShapes[i].setMap(null);
             }
             //DrawingManager가 존재하는 경우 그림그리는 도중일 수 있으므로 남은 그림을 제거한다.
             if(drawingManager != null){
@@ -1004,11 +945,11 @@
                     }
                 }
                 //TODO regions의 경우 추가적으로 도형 생성
-                /*if(vm.categoryStatus == "regions"){
+                if(vm.categoryStatus == "regions"){
                     for(var i=0; i<regionShapes.length; i++){
                         regionShapes[i].setMap(map);
                     }        
-                }*/
+                }
             }
         };
 
@@ -1023,16 +964,13 @@
             //vm.markerData <- regions, customEvent
             vm.markerData["customevent"] = [];
             vm.markerData["regions"] = [];
-            console.log(vm.customEventData.length);
-            console.log(subAreaData.length);
-            console.log(vm.markerData);
+            
             for(var i = 0; i < vm.customEventData.length; i++){
                 vm.markerData["customevent"][i] = vm.customEventData[i];
             }
             for(var i=0; i< subAreaData.length; i++){
                 vm.markerData["regions"][i] = subAreaData[i];
             }
-            console.log(vm.markerData);
             
             var loop = 0;
             for(; loop<categoryTypes.length; loop++){
@@ -1042,10 +980,10 @@
                 for(var idx = 0; idx< vm.markerData[categoryTypes[loop]].length; idx++){
                     createCategoryMarkers(loop, idx);
                     if(categoryTypes[loop] == "customevent"){
-                        customEventShapes[idx] = createShapes(vm.customEventData, idx);
+                        customEventShapes[idx] = createShapes(vm.customEventData, idx, "customevent");
                     }
                     else if(categoryTypes[loop] == "regions"){                    
-                        regionShapes[idx] = createShapes(subAreaData, idx);
+                        regionShapes[idx] = createShapes(subAreaData, idx, "regions");
                     }
                 }
             }
@@ -1075,7 +1013,6 @@
                 }
                 // 현재 상태가 커스텀 이벤트 상태인 경우 폴리곤의 색을 진하게 만든다. 
                 if (vm.categoryStatus == "customevent"){
-                    //customEventShapes[typeIdx].setMap(null);
                     customEventShapes[typeIdx].setOptions({
                         strokeWeight: 2,
                         strokeColor: '#ee7300',
@@ -1084,7 +1021,6 @@
                         fillColor: '#eea600',
                         fillOpacity: 0.8
                     });
-                    //customEventShapes[typeIdx].setMap(map);
                 }
             });
 
@@ -1133,6 +1069,13 @@
                 if(vm.categoryStatus == "customevent"){
                     showCustomEventDialog();
                 }
+                else if(vm.categoryStatus == "regions"){
+                    selectedArea = vm.markerData["regions"][typeIdx];
+                    vm.clickName = vm.markerData["regions"][typeIdx]["name"];
+                    //selectedArea = subArea[typeIdx];          //subArea 정의 이전
+                    //vm.clickName = subArea[typeIdx]["name"];
+                    vm.showDetailed();
+                }
                 else{
                     vm.showMarkerDialog();
                 }
@@ -1143,29 +1086,39 @@
         };
 
         //도형을 생성합니다.
-        function createShapes(data, idx){
+        function createShapes(data, idx, categoryType){
             var shapeData = data[idx];
+            var ret;
+            if(categoryType == "regions"){
+                var newColor = '#transparent';
+                var newstrokeWeight = 0;
+            }
+            else if(categoryType == "customevent"){
+                var newColor = '#00EEEE';
+                var newstrokeWeight = 1;
+            }
+
             if(shapeData["shape"] == "CIRCLE"){
-                return new daum.maps.Circle({
+                ret = new daum.maps.Circle({
                     center : new daum.maps.LatLng(shapeData["circleLat"], shapeData["circleLng"]),
                     radius: shapeData["circleRadius"],
-                    strokeWeight: 1,
+                    strokeWeight: newstrokeWeight,
                     strokeColor: '#004c80',
                     strokeOpacity: 0.8,
-                    fillColor: '#00EEEE',
+                    fillColor: newColor,
                     fillOpacity: 0.4
                 });
             }
             else if(shapeData["shape"] == "RECTANGLE"){
-                return new daum.maps.Rectangle({
+                ret = new daum.maps.Rectangle({
                     bounds : new daum.maps.LatLngBounds(
                         new daum.maps.LatLng(shapeData["rectangleSPointLat"], shapeData["rectangleSPointLng"]),
                         new daum.maps.LatLng(shapeData["rectangleEPointLat"], shapeData["rectangleEPointLng"])
                     ),
-                    strokeWeight: 1,
+                    strokeWeight: newstrokeWeight,
                     strokeColor: '#004c80',
                     strokeOpacity: 0.8,
-                    fillColor: '#00EEEE',
+                    fillColor: newColor,
                     fillOpacity: 0.4
                 });
             }
@@ -1174,15 +1127,60 @@
                 for(var i=0; i<shapeData["path"].length; i++){
                     tempPath[i] = new daum.maps.LatLng(shapeData["path"][i]["lat"], shapeData["path"][i]["lng"]);
                 }
-                return new daum.maps.Polygon({
+                ret = new daum.maps.Polygon({
                     path: tempPath,
-                    strokeWeight: 1,
+                    strokeWeight: newstrokeWeight,
                     strokeColor: '#004c80',
                     strokeOpacity: 0.8,
-                    fillColor: '#00EEEE',
+                    fillColor: newColor,
                     fillOpacity: 0.4 
                 });
             }
+
+            if (categoryType == "regions"){
+                // 다각형에 mouseover 이벤트를 등록하고 이벤트가 발생하면 폴리곤의 채움색을 변경합니다 
+                daum.maps.event.addListener(ret, 'mouseover', function(mouseEvent) {
+                    //도형이 수정중이 아닌 경우에만 모든 listener enable.
+                    if(isModifyRegionShape == false){
+                        ret.setOptions({fillColor: '#09f'});
+                        customOverlay.setContent('<div class="area">' + shapeData["name"] + '</div>');
+                    
+                        customOverlay.setPosition(mouseEvent.latLng); 
+                        customOverlay.setMap(map);
+                    }   
+                });
+
+                // 다각형에 mousemove 이벤트를 등록하고 이벤트가 발생하면 커스텀 오버레이의 위치를 변경합니다 
+                daum.maps.event.addListener(ret, 'mousemove', function(mouseEvent) {
+                    //도형이 수정중이 아닌 경우에만 모든 listener enable.
+                    if(isModifyRegionShape == false){
+                        customOverlay.setPosition(mouseEvent.latLng); 
+                    }
+                    
+                });
+
+
+                // 다각형에 mouseout 이벤트를 등록하고 이벤트가 발생하면 폴리곤의 채움색을 원래색으로 변경합니다
+                daum.maps.event.addListener(ret, 'mouseout', function() {
+                    //도형이 수정중이 아닌 경우에만 모든 listener enable.
+                    if(isModifyRegionShape == false){
+                        ret.setOptions({fillColor: '#transparent'});                        
+                    }
+                    customOverlay.setMap(null);
+                }); 
+
+                daum.maps.event.addListener(ret, 'click', function(mouseEvent) {
+                    //도형이 수정중이 아닌 경우에만 모든 listener enable.
+                    if(isModifyRegionShape == false){
+                        vm.clickName = shapeData["name"];
+                        selectedArea = shapeData;
+                        selectedMarker = printedCategoryMarkers[idx];
+                        selectedMarkerIdx = idx;
+                        vm.showDetailed();
+                    }    
+                });
+            }
+
             return ret;
         };
 
@@ -1326,6 +1324,9 @@
         }
 
     //------------- 구역 오버레이. main area, subArea 출력--------------------
+
+        var selectedArea = null;
+        var printedArea = [];
         var areas = [
         
         ];
@@ -1345,13 +1346,24 @@
                 resolve: {
                   clickName: function(){
                     return vm.clickName;
+                  },
+                  areaData : function(){
+                    return selectedArea;
                   }
                 }
             })
+            .then(function(answer){
+                if(answer == 'markerInfo'){
+                    showRegionDialog();
+                }
+                else if(answer == "delete"){
+                    deleteRegion();
+                }
+            }, function(){});
         };
         
         //구역 폴리곤 클릭 시 다이얼로그 컨트롤러 
-        function DetailedDialogController($scope, $mdDialog, $state, clickName) {
+        function DetailedDialogController($scope, $mdDialog, $state, clickName, areaData) {
             $scope.hide = function() {
                 $mdDialog.hide();
             };
@@ -1368,93 +1380,7 @@
             $scope.clickName = clickName;
         }
 
-        function displayArea(area) {
-        // 다각형을 생성합니다 
-            var polygon = new daum.maps.Polygon({
-                map: map, // 다각형을 표시할 지도 객체
-                path: area.path,
-                strokeWeight: 0,
-                strokeColor: '#004c80',
-                strokeOpacity: 0.8,
-                fillColor: 'transparent',
-                fillOpacity: 0.7 
-            });
 
-            // 다각형에 mouseover 이벤트를 등록하고 이벤트가 발생하면 폴리곤의 채움색을 변경합니다 
-            daum.maps.event.addListener(polygon, 'mouseover', function(mouseEvent) {
-                polygon.setOptions({fillColor: '#09f'});
-                customOverlay.setContent('<div class="area">' + area.name + '</div>');
-            
-                customOverlay.setPosition(mouseEvent.latLng); 
-                customOverlay.setMap(map);
-            });
-
-            // 다각형에 mousemove 이벤트를 등록하고 이벤트가 발생하면 커스텀 오버레이의 위치를 변경합니다 
-            daum.maps.event.addListener(polygon, 'mousemove', function(mouseEvent) {
-                customOverlay.setPosition(mouseEvent.latLng); 
-            });
-
-
-            // 다각형에 mouseout 이벤트를 등록하고 이벤트가 발생하면 폴리곤의 채움색을 원래색으로 변경합니다
-            daum.maps.event.addListener(polygon, 'mouseout', function() {
-                polygon.setOptions({fillColor: '#transparent'});
-                customOverlay.setMap(null);
-            }); 
-
-            daum.maps.event.addListener(polygon, 'click', function(mouseEvent) {
-                vm.clickName = area.name;
-                vm.showDetailed();
-            });
-        }
-
-        
-        for(var i=0; i<subAreaData.length; i++){
-            displaySubArea(subAreaData[i]);
-        }
-
-        function displaySubArea(area) {
-        // 다각형을 생성합니다 
-            var polyPath = [];
-            for(var i=0; i<area["path"].length; i++){
-                polyPath[i] = new daum.maps.LatLng(area["path"][i]["lat"],area["path"][i]["lng"]);
-            }
-
-            var polygon = new daum.maps.Polygon({
-                map: map, // 다각형을 표시할 지도 객체
-                path: polyPath,
-                strokeWeight: 0,
-                strokeColor: '#004c80',
-                strokeOpacity: 0.8,
-                fillColor: 'transparent',
-                fillOpacity: 0.7 
-            });
-
-            // 다각형에 mouseover 이벤트를 등록하고 이벤트가 발생하면 폴리곤의 채움색을 변경합니다 
-            daum.maps.event.addListener(polygon, 'mouseover', function(mouseEvent) {
-                polygon.setOptions({fillColor: '#09f'});
-                customOverlay.setContent('<div class="area">' + area.name + '</div>');
-            
-                customOverlay.setPosition(mouseEvent.latLng); 
-                customOverlay.setMap(map);
-            });
-
-            // 다각형에 mousemove 이벤트를 등록하고 이벤트가 발생하면 커스텀 오버레이의 위치를 변경합니다 
-            daum.maps.event.addListener(polygon, 'mousemove', function(mouseEvent) {
-                customOverlay.setPosition(mouseEvent.latLng); 
-            });
-
-
-            // 다각형에 mouseout 이벤트를 등록하고 이벤트가 발생하면 폴리곤의 채움색을 원래색으로 변경합니다
-            daum.maps.event.addListener(polygon, 'mouseout', function() {
-                polygon.setOptions({fillColor: '#transparent'});
-                customOverlay.setMap(null);
-            }); 
-
-            daum.maps.event.addListener(polygon, 'click', function(mouseEvent) {
-                vm.clickName = area["name"];
-                vm.showDetailed();
-            });
-        }
 
     //-------------mapLocation service에 주기적으로 map 상태 갱신하기-------------------
         $interval(updateMapLocationService, 2000); 
