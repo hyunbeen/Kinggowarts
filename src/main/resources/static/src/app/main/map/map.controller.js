@@ -12,17 +12,21 @@
     function MapController($mdDialog, DrawingMenuData, CustomEventData, SubAreaData, CategoryMarkerData, MarkerData, $scope, $interval, $timeout, peerLocation, mapLocation, $sessionStorage, $state)
     {
         var vm = this;
-        vm.markerData = MarkerData.data;
-        var subAreaData = SubAreaData.data;
+        
         vm.clickName = "none"; //클릭한 구역 폴리곤(area)의 name
-
         vm.clickUrl = "http://fanatic1.iptime.org:8080/xwiki/bin/view/XWiki/";
 
         vm.userLat = 0;
         vm.userLng = 0;
         vm.curMapLevel = 3;     //현재 지도의 zoom level
+        
         //category status type : {bank, toilet, print, busstop, vendingmachine}, {insideRestaurant, outsideRestaurant}, {standard, engineer, comm, soft}, group, region
-        vm.categoryStatus = mapLocation.lastCategoryStatus; 
+        vm.categoryStatus = "none";
+        vm.markerData = MarkerData.data;
+        var subAreaData = SubAreaData.data;
+        vm.customEventData = CustomEventData.data;
+        vm.drawingMenuData = DrawingMenuData.data;
+        vm.categoryMenu = CategoryMarkerData.data;
         
         var container = document.getElementById('map');
         var options = {
@@ -48,16 +52,34 @@
                 $state.go('login');
             }
         };
-        usercheck();
+        //usercheck();
 
         var customOverlay = new daum.maps.CustomOverlay({});
         var infowindow = new daum.maps.InfoWindow({removable: true});
 
+        daum.maps.Tileset.add('TILE_NUMBER', 
+        new daum.maps.Tileset({
+            width: 256,
+            height: 256,
+            getTile: function(x, y, z) {
+                var div = document.createElement('div');
+                div.innerHTML = x + ', ' + y + ', ' + z;//'<div><img src="assets/images/backgrounds/full_image.png"></img></div>';//x + ', ' + y + ', ' + z;    //<div><img src="assets/images/backgrounds/full_image.png"></img></div>
+                div.style.fontSize = '36px';
+                div.style.fontWeight = 'bold';
+                div.style.lineHeight = '256px'
+                div.style.textAlign = 'center';
+                div.style.color = '#4D4D4D';
+                div.style.border = '1px dashed #ff5050';
+                return div;
+            }
+        }));
 
+        // 지도 위에 TILE_NUMBER 오버레이 레이어를 추가합니다
+        map.addOverlayMapTypeId(daum.maps.MapTypeId.TILE_NUMBER);
         //-------------------------------custom evnet Drawing---------------------------------------
-        vm.customEventData = CustomEventData.data;
+        
         var drawingManager = null;
-        vm.drawingMenuData = DrawingMenuData.data;
+        
         var drawCustomEvnetOptions = { // Drawing Manager를 생성할 때 사용할 옵션입니다
             map: map, // Drawing Manager로 그리기 요소를 그릴 map 객체입니다
             drawingMode: [ // Drawing Manager로 제공할 그리기 요소 모드입니다
@@ -724,7 +746,6 @@
 
     //----------------------------------카테고리 선택 메뉴 --------------------------
         var categoryLevel = "none";
-        vm.categoryMenu = CategoryMarkerData.data;
 
         //answer가 leaf category(categoryTypes 배열의 요소)에 없으면 categoryLevel에 해당.
         vm.categorySelect = function(answer){
@@ -889,6 +910,13 @@
             isModifyCustomEventShape = false;
             isModifyRegionShape = false;
 
+            // 바꾸기 이전의 상태가 none인 경우 기본 도형 제거
+            if(vm.categoryStatus == "none"){
+                for(var i=0; i<regionShapes.length; i++){
+                    regionShapes[i].setMap(null);
+                }
+            }
+
             vm.categoryStatus = status;
             //선택된 marker의 clicked image상태를 normal image로 되돌려놓는다.
             if(selectedMarker != null){
@@ -907,6 +935,8 @@
             for(var i=0; i<regionShapes.length; i++){
                 regionShapes[i].setMap(null);
             }
+
+
             //DrawingManager가 존재하는 경우 그림그리는 도중일 수 있으므로 남은 그림을 제거한다.
             if(drawingManager != null){
                 var drawingManagerOverlays = drawingManager.getOverlays();
@@ -943,9 +973,14 @@
                     }        
                 }
             }
+            else{   //region이 none인 경우 투명 regions 생성.
+                for(var i=0; i<regionShapes.length; i++){
+                    regionShapes[i].setMap(map);
+                }    
+            }
         };
 
-        createCategoryMarkersInJson();  //처음 페이지 진입 시 카테고리 별 마커 및 도형을 미리 만듭니다.
+        //createCategoryMarkersInJson();  //처음 페이지 진입 시 카테고리 별 마커 및 도형을 미리 만듭니다.
 
         //JSON으로 받아온 데이터에 해당하는 모든 마커 및 도형을 생성합니다. (클라이언트 내)데이터가 갱신되는 경우 이 함수를 호출합니다.
         function createCategoryMarkersInJson(){
@@ -1210,8 +1245,8 @@
 
     //-------------확대축소, 사용자 위치 이동 및 깃발, 지도 벗어남 금지, 유저위치 get-----------
         //확대 축소 버튼 
-        var zoomControl = new daum.maps.ZoomControl();
-        map.addControl(zoomControl, daum.maps.ControlPosition.BOTTOMLEFT);
+        //var zoomControl = new daum.maps.ZoomControl();
+        //map.addControl(zoomControl, daum.maps.ControlPosition.BOTTOMLEFT);
 
         // Zoom change Listener(zoom 범위 벗어났을대 재조정)
         //zoom_start listener 있음.
@@ -1518,7 +1553,6 @@
             }
         };
 
-
         // peer 변경 감시(watch)
         $scope.$watch(function() { return peerLocation.peer}, function(newVal) {
             if(isPeerOnMap == true){
@@ -1526,6 +1560,10 @@
                 vm.peerOnMapFunciton();   
             }
         }, true);
+
+        createCategoryMarkersInJson();  //처음 페이지 진입 시 카테고리 별 마커 및 도형을 미리 만듭니다.
+        categoryStatusChangeProcess(mapLocation.lastCategoryStatus); 
+
     }
     
 //------controller scope 밖 function
@@ -1535,7 +1573,8 @@
         if(shapeType == "circle"){
             var X = (drawingObj["center"]["x"]-markerLng);
             var Y = (drawingObj["center"]["y"]-markerLat);
-            if( (X*X + Y*Y) > drawingObj["radius"]*drawingObj["radius"]){
+            var dit = drawingObj["radius"]/100000;
+            if( (X*X + Y*Y) > dit*dit){
                 return false;
             }
         }

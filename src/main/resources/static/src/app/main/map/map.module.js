@@ -31,6 +31,12 @@
                     SubAreaData: function(msApi)
                     {
                         return msApi.resolve('subArea@get');
+                        //var obj = $http.get('localhost:8082/kinggowarts/api/map?type=user', {
+                            //headers : {
+                            //   'Authorization' : $sessionStorage.get('AuthToken')
+                            //}
+                        //});
+                        //return obj;
                     },
                     DrawingMenuData: function(msApi)
                     {
